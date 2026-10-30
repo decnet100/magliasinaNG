@@ -3,7 +3,8 @@ build_level.stage_roads.
 
 Runs network_mesh (every tile), its terrain carve and bridges.build on the data of network.py and
 network_surface.py, as stage_roads does, but writes into WORK/roads_only/ instead of a level:
-* road_<tx>_<ty>.dae - the meshes per 128 m chunk (Z-up COLLADA, local coordinates + origin);
+* road_<tx>_<ty>.dae - the meshes per 128 m chunk (Z-up COLLADA, local coordinates + origin), and .npz with the
+  same triangles per material in local coordinates (materials, v<i>, t<i>, uv<i>), for a tool that writes its own;
 * tops.tif - the height of the highest road top face on a 1 m grid, in the map CRS (NaN off the roads), and
   tops_minus_dtm.tif - that height minus the DTM, both for QGIS;
 * report.json - triangles, chunks, bridges, carved terrain vertices, and how far the tops sit from the DTM.
@@ -89,6 +90,14 @@ def main():
     recs = bridges.build(net, lambda x, y: dtm.sample(x, y), on_deck, on_cap, xs, ys, exclude=None)
     bridges.save_records(recs)
     for (tx, ty), mb in sorted(builders.items()):
+        # the triangles as they are (local coordinates), for a tool that writes its own meshes (terrainWorker)
+        arrays, mats = {}, []
+        for i, (mat, p) in enumerate(mb.parts.items()):
+            mats.append(mat)
+            arrays[f"v{i}"] = np.concatenate(p[0]).astype(np.float64)
+            arrays[f"t{i}"] = np.concatenate(p[3]).astype(np.int32)
+            arrays[f"uv{i}"] = np.concatenate(p[2]).astype(np.float32)
+        np.savez_compressed(os.path.join(OUT, f"road_{tx:+03d}_{ty:+03d}.npz"), materials=np.array(mats), **arrays)
         origin = np.array([(tx + 0.5) * CHUNK, (ty + 0.5) * CHUNK, 0.0])
         mb.write_dae(os.path.join(OUT, f"road_{tx:+03d}_{ty:+03d}.dae"), name=f"road_{tx}_{ty}", origin=origin)
 

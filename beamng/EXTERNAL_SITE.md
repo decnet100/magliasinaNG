@@ -35,6 +35,8 @@ source external.env && python landcover.py && python network.py && python networ
 given) and `dtm2` from the 0.5 m model (NaN filled from the nearest cell; no Copernicus outside Switzerland) and an
 empty bridge list. `roads_only.py` is the network part of `build_level.stage_roads` without the level: chunk DAEs,
 the terrain carve, the bridge decks, and `tops.tif` / `tops_minus_dtm.tif` (1 m, map CRS) plus `report.json`.
+It also writes the triangles of every chunk per material as `road_<tx>_<ty>.npz` (local coordinates) and the carve
+and deck caps as `terrain_override.npz`: terrainWorker's `import_magliasina_roads.py` puts those into its own level.
 Needs `opencv-python-headless` (lamps.py, imported through water.py by network.dry_ends).
 
 ## Pfunds–Spiss, first run (2026-10-30)
