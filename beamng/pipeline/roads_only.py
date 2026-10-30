@@ -2,7 +2,7 @@
 build_level.stage_roads.
 
 Runs network_mesh (every tile), its terrain carve and bridges.build on the data of network.py and
-network_surface.py, as stage_roads does, but writes into WORK/roads_only/ instead of a level:
+network_surface.py, as stage_roads does, then road_seams' ramps (seam_ramps: the finish step of a level build), but writes into WORK/roads_only/ instead of a level:
 * road_<tx>_<ty>.dae - the meshes per 128 m chunk (Z-up COLLADA, local coordinates + origin), and .npz with the
   same triangles per material in local coordinates (materials, v<i>, t<i>, uv<i>), for a tool that writes its own;
 * tops.tif - the height of the highest road top face on a 1 m grid, in the map CRS (NaN off the roads), and
@@ -26,6 +26,58 @@ from geo import Grid, save_geotiff, smoothed_sampler
 CHUNK = 128.0
 OUT = os.path.join(WORK, "roads_only")
 TOP_RES = 1.0
+
+
+SEAM_MATS = ("mp_road_asphalt", "mp_road_asphalt_fresh", "mp_road_sett", "mp_road_cobble",
+             "mp_road_dirt", "mp_road_gravel", "mp_path_paved", "mp_path_dirt", "mp_hard_asphalt")
+
+
+def seam_ramps(builders):
+    """road_seams.py's step (the finish step of a level build) on the chunk meshes before they are written: every
+    outline edge of a road face with a higher road face just beyond it (1.5-30 cm) raises the lower piece into a
+    ramp (12 m per m of step, 0.75-3 m, cosine). Unlike the level step, the unpaved road and path surfaces count
+    too (a way joining a road is one of them), and the sags of the AI lanes are not lifted (no AI roads here).
+    Every vertex of the chunks at the place of a raised corner goes up with it (skirts, wall tops)."""
+    import road_seams
+    tops = []
+    for mb in builders.values():
+        for mat, p in mb.parts.items():
+            if mat not in SEAM_MATS:
+                continue
+            V = np.concatenate(p[0])
+            T = V[np.concatenate(p[3])]
+            n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+            up = n[:, 2] / np.maximum(np.linalg.norm(n, axis=1), 1e-12) > 0.5
+            tops.append(T[up])
+    T = np.concatenate(tops)
+    P = T.reshape(-1, 3)
+    root = road_seams._weld(P)
+    sx, snrm, sdz, sR, splane = road_seams.seams(T, root, road_seams.Faces(T))
+    lift = road_seams.lifts(P, sx, snrm, sdz, sR, splane)
+    Pi = P + np.column_stack([np.zeros((len(P), 2)), lift])
+    left = road_seams.seams(Pi.reshape(-1, 3, 3), root, road_seams.Faces(Pi.reshape(-1, 3, 3)))[2]
+    raised = lift > 0
+    key = {tuple(k): v for k, v in zip(np.round(P[raised] * 1000).astype(np.int64).tolist(), lift[raised])}
+    best = {}
+    for k_, v in key.items():
+        best[k_] = max(best.get(k_, 0.0), v)
+    moved = 0
+    for mb in builders.values():
+        for p in mb.parts.values():
+            for V in p[0]:
+                k = np.round(V * 1000).astype(np.int64)
+                dz = np.array([best.get(tuple(r), 0.0) for r in k.tolist()]) if best else np.zeros(len(V))
+                if (dz > 0).any():
+                    V[:, 2] += dz
+                    moved += int((dz > 0).sum())
+    sm = road_seams.SAMPLE
+    rep = {"seam_m": round(len(sx) * sm, 1),
+           "step_cm_p50": round(float(np.median(sdz)) * 100, 1) if len(sdz) else 0.0,
+           "step_cm_max": round(float(sdz.max()) * 100, 1) if len(sdz) else 0.0,
+           "seam_m_left": round(len(left) * sm, 1), "seam_m_left_over_3cm": round(float((left >= 0.03).sum()) * sm, 1),
+           "vertices_raised": moved, "lift_cm_max": round(float(lift.max(initial=0)) * 100, 1)}
+    print("seam ramps:", rep, flush=True)
+    return rep
 
 
 def main():
@@ -101,6 +153,7 @@ def main():
         origin = np.array([(tx + 0.5) * CHUNK, (ty + 0.5) * CHUNK, 0.0])
         mb.write_dae(os.path.join(OUT, f"road_{tx:+03d}_{ty:+03d}.dae"), name=f"road_{tx}_{ty}", origin=origin)
 
+    seams = seam_ramps(builders)
     print("bridges %d, writing %d chunks, %.0f s" % (len(recs), len(builders), time.time() - t0), flush=True)
     # top heights on a grid, for a look in QGIS
     tops = [t for v in chunk_tops.values() for t in v]
@@ -126,7 +179,7 @@ def main():
            "network_triangles": int(ntri), "stone_faces": stats["stone faces"], "bridges": len(recs),
            "carved_terrain_vertices": int(np.isfinite(ov).sum()), "capped_terrain_vertices": int(np.isfinite(cap).sum()),
            "road_cells": int(d.size), "tops_minus_dtm_m": {q: round(float(np.percentile(d, q)), 3) for q in (1, 5, 50, 95, 99)},
-           "seconds": round(time.time() - t0)}
+           "seam_ramps": seams, "seconds": round(time.time() - t0)}
     json.dump(rep, open(os.path.join(OUT, "report.json"), "w"), indent=1)
     np.savez_compressed(os.path.join(OUT, "terrain_override.npz"), ov=ov, cap=cap)
     print(json.dumps(rep, indent=1))

@@ -43,6 +43,9 @@ Needs `opencv-python-headless` (lamps.py, imported through water.py by network.d
 
 - network.py: 400 segments, 435 nodes (82 junctions), 48.9 km road + 23.9 km path (Swiss TLM ways), 37 bridges.
 - network_surface.py: |z − DTM| median 1.2 cm, p99 0.53 m; 359 bridge stations; 1.8 % of the data rejected.
+- roads_only.py (2026-10-30, later): seam ramps on the chunk meshes before writing (road_seams' step; the unpaved road
+  and path surfaces count too): 2.75 km of seams with 1.5-30 cm steps (median 2 cm) -> 462 m left, 206 m of them over
+  3 cm (corners where three pieces meet; a second pass is not run: in the Malcantone it stacked ramps up to 78 cm).
 - roads_only.py, 69 s: 613 chunks, 1.30 M triangles (0.48 M network tops), 6,369 stone faces, 545,573 terrain
   vertices carved. Road top minus DTM on 1 m cells: median 0.003 m, p5/p95 −0.10/+0.12 m, p1 −0.59 m, p99 +2.79 m
   (bridge decks). The cells beyond ±0.3/0.5 m (about 2 % each) lie along road edges on steep slopes, where a 1 m
