@@ -9,11 +9,11 @@ import numpy as np
 import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import reproject, Resampling
-from config import DATA, E0, N0, K, WORK
+from config import CRS, DATA, E0, N0, K, WORK
 
 
 def grid_transform(x_min, y_max, res):
-    """Affine (EPSG:2056) of a north-up local grid whose top-left corner is (x_min, y_max)."""
+    """Affine (map CRS) of a north-up local grid whose top-left corner is (x_min, y_max)."""
     return Affine(res * K, 0, E0 + x_min * K, 0, -res * K, N0 + y_max * K)
 
 
@@ -24,7 +24,7 @@ def local_grid(x_min, y_min, x_max, y_max, res):
 
 
 def mosaic(pattern, x_min, y_min, x_max, y_max, res, resampling=Resampling.bilinear,
-           dtype=np.float32, nodata=np.nan, src_crs="EPSG:2056"):
+           dtype=np.float32, nodata=np.nan, src_crs=CRS):
     """Resample every tile matching `pattern` into one local grid (bands, h, w). Each tile is
     resampled into the window of the grid it covers only (large grids: v2.0 area)."""
     files = sorted(glob.glob(os.path.join(DATA, pattern)))
@@ -41,13 +41,13 @@ def mosaic(pattern, x_min, y_min, x_max, y_max, res, resampling=Resampling.bilin
     for f in files:
         with rasterio.open(f) as s:
             b = s.bounds
-            if src_crs == "EPSG:2056":
+            if src_crs == CRS:
                 if b.right < e1 or b.left > e2 or b.top < n1 or b.bottom > n2:
                     continue
                 corners = [(b.left, b.top), (b.right, b.bottom)]
             else:
                 from rasterio.warp import transform as warp_pts
-                xs, ys = warp_pts(s.crs, "EPSG:2056", [b.left, b.right, b.left, b.right],
+                xs, ys = warp_pts(s.crs, CRS, [b.left, b.right, b.left, b.right],
                                   [b.bottom, b.bottom, b.top, b.top])
                 corners = list(zip(xs, ys))
             cr = [inv * c for c in corners]
@@ -61,7 +61,7 @@ def mosaic(pattern, x_min, y_min, x_max, y_max, res, resampling=Resampling.bilin
             tmp = np.full((bands, r1 - r0, c1 - c0), nodata, dtype)
             reproject(source=rasterio.band(s, list(range(1, bands + 1))), destination=tmp,
                       src_transform=s.transform, src_crs=s.crs, src_nodata=s.nodata,
-                      dst_transform=wtr, dst_crs="EPSG:2056", dst_nodata=nodata,
+                      dst_transform=wtr, dst_crs=CRS, dst_nodata=nodata,
                       resampling=resampling)
             m = ~np.isnan(tmp) if np.issubdtype(dtype, np.floating) else tmp != nodata
             dst = out[:, r0:r1, c0:c1]
@@ -112,7 +112,7 @@ def ortho_sampler(path=None):
 def save_geotiff(path, arr, x_min, y_max, res, nodata=None):
     arr = arr if arr.ndim == 3 else arr[None]
     prof = dict(driver="GTiff", height=arr.shape[1], width=arr.shape[2], count=arr.shape[0],
-                dtype=arr.dtype, crs="EPSG:2056", transform=grid_transform(x_min, y_max, res),
+                dtype=arr.dtype, crs=CRS, transform=grid_transform(x_min, y_max, res),
                 compress="deflate", tiled=True, BIGTIFF="IF_SAFER")
     if nodata is not None:
         prof["nodata"] = nodata

@@ -41,7 +41,7 @@ from config import WORK
 import network
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PONTI = os.path.join(os.path.dirname(HERE), "dati", "ponti.json")
+from config import PONTI  # noqa: E402  (dati/ponti.json, or MAGLIASO_PONTI on an external site)
 SLAB = 0.6
 PARAPET = 1.0
 RAIL = 1.0

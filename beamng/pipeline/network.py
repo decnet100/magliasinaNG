@@ -238,7 +238,7 @@ def av_bridges():
 def bridge_overrides():
     """The corrections of dati/ponti.json by swissTLM3D id: "deck": "survey" (built on the survey's outline, its
     widths kept) and, v3.1, "width" (m, the carriageway on a bridge, set by hand)."""
-    f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dati", "ponti.json")
+    from config import PONTI as f
     if not os.path.exists(f):
         return {}
     return {b["tlm"]: b for b in json.load(open(f, encoding="utf-8"))["ponti"]}

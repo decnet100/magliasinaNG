@@ -11,7 +11,7 @@ and art/terrains/main.materials.json; returns (z0, max_height).
 import json, os
 import numpy as np
 from scipy.ndimage import gaussian_filter, map_coordinates, zoom
-from config import WORK, TER_SIZE, TER_SQUARE, TER_X0, TER_Y0, LEVEL_NAME
+from config import CRS, WORK, TER_SIZE, TER_SQUARE, TER_X0, TER_Y0, LEVEL_NAME
 from geo import Grid, ortho_sampler
 from landcover import CODE
 import bng
@@ -144,7 +144,7 @@ def base_color_maps(colors, layers):
             tr = grid_transform(TER_X0 - TER_SQUARE / 2, y_top, TER_SQUARE)
             o = np.zeros((3, r1 - r0, TER_SIZE), np.uint8)
             reproject(source=rasterio.band(src, [1, 2, 3]), destination=o, src_transform=src.transform,
-                      src_crs=src.crs, dst_transform=tr, dst_crs="EPSG:2056", resampling=Resampling.bilinear,
+                      src_crs=src.crs, dst_transform=tr, dst_crs=CRS, resampling=Resampling.bilinear,
                       src_nodata=0, dst_nodata=0)
             o = o[:, ::-1].transpose(1, 2, 0).astype(np.float32)        # rows south -> north like the layers
             lay = layers[r0:r1].copy()

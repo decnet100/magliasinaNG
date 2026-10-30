@@ -129,7 +129,10 @@ def smooth_rows(st, segs, u, node_pos):
 
 
 def cantonale_hold(st):
-    """Stations on the Strada Cantonale corridor surface (roadheight.py): (mask, height)."""
+    """Stations on the Strada Cantonale corridor surface (roadheight.py): (mask, height). None on an external site."""
+    from config import EXTERNAL
+    if EXTERNAL:
+        return np.zeros(len(st["x"]), bool), np.full(len(st["x"]), np.nan)
     import roadheight
     S = roadheight.load()
     x, y = st["x"], st["y"]
@@ -142,7 +145,7 @@ def cantonale_hold(st):
 
 def manual_bridges():
     """The corrections of dati/ponti.json by swissTLM3D id (bridges.py keeps them there)."""
-    f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dati", "ponti.json")
+    from config import PONTI as f
     if not os.path.exists(f):
         return {}
     return {b["tlm"]: b for b in json.load(open(f, encoding="utf-8"))["ponti"]}

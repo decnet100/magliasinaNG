@@ -18,8 +18,8 @@ distant backdrop starts at the edge of that square.
 import json, os
 import numpy as np
 import shapely
-from config import (AREA_MARGIN, BOUNDARY, EXTRA_CORRIDOR, EXTRA_ROAD_MARGIN, K, ROUTE_MARGIN, TER_SIZE, TER_SQUARE, TER_X0,
-                    TER_X1, TER_Y0, TER_Y1, local_to_lv95, lv95_to_local, wgs_to_local)
+from config import (AREA_FILE, AREA_MARGIN, BOUNDARY, EXTERNAL, EXTRA_CORRIDOR, EXTRA_ROAD_MARGIN, K, ROUTE_MARGIN,
+                    TER_SIZE, TER_SQUARE, TER_X0, TER_X1, TER_Y0, TER_Y1, local_to_lv95, lv95_to_local, wgs_to_local)
 
 DATI = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dati")
 _cache = {}
@@ -31,7 +31,9 @@ def boundary():
 
 
 def route():
-    """The Street View route (main run of the calibrated poses)."""
+    """The Street View route (main run of the calibrated poses); none on an external site."""
+    if EXTERNAL:
+        return shapely.LineString()
     if "route" not in _cache:
         poses = json.load(open(os.path.join(DATI, "poses.json")))
         _cache["route"] = shapely.LineString([p["pos"][:2] for p in poses if p["main_run"]])
@@ -93,10 +95,18 @@ def villages():
     return _cache["villages"]
 
 
+def external_polygon():
+    """An external site (config.EXTERNAL): the polygon of MAGLIASO_AREA (GeoJSON in the map CRS), local."""
+    from shapely.geometry import shape
+    feats = json.load(open(AREA_FILE, encoding="utf-8"))["features"]
+    g = shapely.union_all([shape(f["geometry"]) for f in feats])
+    return shapely.transform(g, lambda c: np.column_stack(lv95_to_local(c[:, 0], c[:, 1])))
+
+
 def polygon():
     """The playable area (local coordinates)."""
     if "area" not in _cache:
-        _cache["area"] = _polygon(corridors=True)
+        _cache["area"] = external_polygon() if EXTERNAL else _polygon(corridors=True)
     return _cache["area"]
 
 
