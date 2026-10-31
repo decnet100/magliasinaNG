@@ -12,6 +12,7 @@ Then, with them set, the data:
 * DATA/ext_dgm05/ and DATA/ext_dom05/ with the 0.5 m terrain (and surface) model, already in the map CRS;
 * WORK/dtm05.npz, dtm05_nodata.npy, dsm05.npz (the DTM where no DOM is given) on area.raster_bounds,
   WORK/dtm2.npz on area.block_bounds; NaN filled from the nearest cell (no Copernicus outside Switzerland);
+* DATA/keep_out/<kind>.geojson from the export's keep_out/ (guard rails, buildings, water ...), if there;
 * MAGLIASO_PONTI: an empty bridge list if there is none yet (bridges.py writes it on the first build).
 The area (MAGLIASO_AREA) is the export's bbox less MARGIN_M (default 100 m), written beside the export.
 After this, landcover.py, network.py, network_surface.py and roads_only.py run as usual.
@@ -41,7 +42,10 @@ def env(export, margin=100.0):
              "MAGLIASO_TER_SIZE": str(size), "MAGLIASO_TER_SQUARE": "1.0", "MAGLIASO_TER_ORIGIN": f"{ter_x0:.1f},{ter_y0:.1f}",
              "MAGLIASO_LEVEL_NAME": m.get("site", "external").replace("-", "_"), "MAGLIASO_ROOT": root,
              "MAGLIASO_DATASET": root, "MAGLIASO_BEAMNG_USER": os.path.join(root, "beamng_user"),
-             "MAGLIASO_BEAMNG_GAME": "/nonexistent"}
+             "MAGLIASO_BEAMNG_GAME": "/nonexistent",
+             # embankments of the edge steps (network_mesh.EMB_*): 1 m at 1:1 instead of 3 m at 1:1.5, which on
+             # alpine slopes steeper than 34 degrees filled the whole slope 2-3 m deep up to 25 m from a road
+             "MAGLIASO_EMB_MAX": "1.0", "MAGLIASO_EMB_SLOPE": "1.0"}
     for k_, v in lines.items():
         print(f"export {k_}='{v}'")
 
@@ -58,6 +62,12 @@ def data(export, dgm, dom=None):
     shutil.copy(os.path.join(export, "tlm", "TLM_STRASSE.json"), os.path.join(DATA, "tlm", "TLM_STRASSE.json"))
     for name in ("LCSF", "SOSF", "SOLI", "SOPT"):
         shutil.copy(os.path.join(export, "av", f"{name}.geojson"), os.path.join(DATA, "av", f"{name}.geojson"))
+    # what marks a road's edge (terrainWorker's export_keep_out.py): roads_only's edge steps raise no ground there
+    keep = os.path.join(DATA, "keep_out")
+    shutil.rmtree(keep, ignore_errors=True)
+    if os.path.isdir(os.path.join(export, "keep_out")):
+        shutil.copytree(os.path.join(export, "keep_out"), keep)
+        print("keep-out:", sorted(f for f in os.listdir(keep) if f.endswith(".geojson")), flush=True)
     for d, src in (("ext_dgm05", dgm), ("ext_dom05", dom)):
         if src:
             os.makedirs(os.path.join(DATA, d), exist_ok=True)

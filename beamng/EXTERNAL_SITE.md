@@ -16,6 +16,7 @@ Pfunds–Spiss (Tirol / Graubünden, EPSG:25832). Without the variables below ev
 | `MAGLIASO_PONTI` | the bridge list (default `dati/ponti.json`); an external site keeps its own |
 | `MAGLIASO_TER_SIZE`, `MAGLIASO_TER_SQUARE`, `MAGLIASO_TER_ORIGIN` | terrain block |
 | `MAGLIASO_LEVEL_NAME` | level name |
+| `MAGLIASO_EMB_MAX`, `MAGLIASO_EMB_SLOPE` | embankment of the edge steps (network_mesh.EMB_*; default 3 m at 1:1.5; prepare_external sets 1 m at 1:1) |
 
 ## Run
 
@@ -50,6 +51,22 @@ Needs `opencv-python-headless` (lamps.py, imported through water.py by network.d
   vertices carved. Road top minus DTM on 1 m cells: median 0.003 m, p5/p95 −0.10/+0.12 m, p1 −0.59 m, p99 +2.79 m
   (bridge decks). The cells beyond ±0.3/0.5 m (about 2 % each) lie along road edges on steep slopes, where a 1 m
   cell holds road and bank.
+
+## Edge steps (unpaved, paved_edges)
+
+`roads_only.py` runs the two finish steps on a small level folder (`WORK/roads_only/level`: the road chunks in
+`roads/surfaces`, `theTerrain.ter` with the terrain after the carve and its TerrainBlock, and the keep-out shapes)
+so `network_mesh.unpaved_step` and `paved_edges_step` run unchanged. The keep-out comes from
+`DATA/keep_out/<kind>.geojson` (guardrails, fences, walls, buildings, railway, water; terrainWorker's
+`export_keep_out.py`) as flat triangles in the groups `keep_out_cells` reads. The seam ramps run first, so the ground
+rises to the final faces. The chunks are read back from the folder (`road_*.dae` / `.npz`) and the terrain goes to
+`terrain_final.npz` (z after the steps, dtm before anything; rows south → north).
+
+Pfunds–Spiss (2026-10-31), keep-out: 731 buildings, 74 water features, no guard rails yet: paved outer edges over
+the ground 0.3 m beyond them, median 0.20 m (81 % over 0.15 m) → 0.07 m (8 % over 0.15 m). With Magliasina's
+embankment (3 m at 1:1.5) slopes steeper than 34° were filled 2-3 m deep up to 25 m from the road (31,525 px over
+1.5 m in the 1.5 km test crop); with 1 m at 1:1 (prepare_external's default here): 3 px, raised median 0.30 m.
+The terrain of the edge steps is for the game; a rockfall model needs the plain DGM.
 
 ## Not done
 

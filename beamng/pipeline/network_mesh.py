@@ -874,8 +874,10 @@ SHOULDER = 1.5        # m from an unpaved face: the terrain aims at its height
 BLEND = 4.5           # m ... fading back to the ground up to here
 TALL = 1.0            # m, ground further under the face: a wall or a bridge, not a trench
 EMB_FLAT = 0.5        # m (v3.0) of ground at the road's height beside a road higher than TALL over the ground
-EMB_SLOPE = 0.67      # then down 1:1.5 (an embankment) ...
-EMB_MAX = 3.0         # ... where that fills the ground by no more than this (deeper: a wall or a bridge)
+EMB_SLOPE = float(os.environ.get("MAGLIASO_EMB_SLOPE") or 0.67)   # then down 1:1.5 (an embankment) ...
+EMB_MAX = float(os.environ.get("MAGLIASO_EMB_MAX") or 3.0)        # ... where that fills the ground by no more than this
+# (deeper: a wall or a bridge). An external site on steep alpine slopes sets both lower (EXTERNAL_SITE.md): read
+# from the environment, so the spawned workers of unpaved_step get them too
 SUB = 5               # face samples per terrain step
 PASSES = 12           # spreading passes before the last, safe one
 EDGE_UP = 0.01        # m, an outer edge vertex of an unpaved face over the terrain
